@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Air Hockey: Player vs Computer</title>
+  <style>
+    body { background: #181818; display: flex; justify-content: center; align-items: center; height: 100vh; }
+    canvas { background: #222; display: block; margin: 40px auto; border: 4px solid #eee; }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="800" height="400"></canvas>
+  <script>
+    // --- Game Settings ---
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const WIDTH = canvas.width;
+    const HEIGHT = canvas.height;
+
+    const PADDLE_WIDTH = 18, PADDLE_HEIGHT = 80, PADDLE_SPEED = 6;
+    const AI_PADDLE_SPEED = 4;
+    const PUCK_RADIUS = 16, PUCK_SPEED = 5;
+
+    let playerScore = 0, aiScore = 0;
+
+    // Left paddle (player) and right paddle (AI)
+    let leftPaddle = { x: 16, y: HEIGHT/2 - PADDLE_HEIGHT/2, dy: 0 };
+    let rightPaddle = { x: WIDTH-16-PADDLE_WIDTH, y: HEIGHT/2 - PADDLE_HEIGHT/2, dy: 0 };
+
+    // Puck object
+    let puck = { x: WIDTH/2, y: HEIGHT/2, dx: PUCK_SPEED, dy: PUCK_SPEED/2 };
+
+    function resetPuck(direction=1) {
+      puck.x = WIDTH/2;
+      puck.y = HEIGHT/2;
+      puck.dx = direction * PUCK_SPEED * (Math.random() > 0.5 ? 1 : -1);
+      puck.dy = PUCK_SPEED * (Math.random()*1.5 - 0.75);
+      leftPaddle.y = HEIGHT/2 - PADDLE_HEIGHT/2;
+      rightPaddle.y = HEIGHT/2 - PADDLE_HEIGHT/2;
+    }
+
+    // --- Controls ---
+    const keys = {};
+    window.addEventListener('keydown', e => keys[e.key] = true);
+    window.addEventListener('keyup', e => keys[e.key] = false);
+
+    // --- Game Loop ---
+    function update() {
+      // Player controls left paddle
+      if (keys['ArrowUp']) leftPaddle.dy = -PADDLE_SPEED;
+      else if (keys['ArrowDown']) leftPaddle.dy = PADDLE_SPEED;
+      else leftPaddle.dy = 0;
+      leftPaddle.y += leftPaddle.dy;
+      leftPaddle.y = Math.max(0, Math.min(HEIGHT-PADDLE_HEIGHT, leftPaddle.y));
+
+      // AI controls right paddle
+      if (puck.y < rightPaddle.y + PADDLE_HEIGHT/2)
+        rightPaddle.dy = -AI_PADDLE_SPEED;
+      else if (puck.y > rightPaddle.y + PADDLE_HEIGHT/2)
+        rightPaddle.dy = AI_PADDLE_SPEED;
+      else
+        rightPaddle.dy = 0;
+      rightPaddle.y += rightPaddle.dy;
+      rightPaddle.y = Math.max(0, Math.min(HEIGHT-PADDLE_HEIGHT, rightPaddle.y));
+
+      // Move puck
+      puck.x += puck.dx;
+      puck.y += puck.dy;
+
+      // Collide with top/bottom
+      if (puck.y - PUCK_RADIUS < 0 || puck.y + PUCK_RADIUS > HEIGHT) {
+        puck.dy *= -1;
+        puck.y = Math.max(PUCK_RADIUS, Math.min(HEIGHT-PUCK_RADIUS, puck.y));
+      }
+
+      // Collide with left paddle (player)
+      if (puck.x - PUCK_RADIUS < leftPaddle.x + PADDLE_WIDTH &&
+          puck.y > leftPaddle.y && puck.y < leftPaddle.y + PADDLE_HEIGHT &&
+          puck.x > leftPaddle.x) {
+        puck.dx = Math.abs(puck.dx);
+        puck.dy += leftPaddle.dy * 0.3;
+      }
+      // Collide with right paddle (AI)
+      if (puck.x + PUCK_RADIUS > rightPaddle.x &&
+          puck.y > rightPaddle.y && puck.y < rightPaddle.y + PADDLE_HEIGHT &&
+          puck.x < rightPaddle.x + PADDLE_WIDTH) {
+        puck.dx = -Math.abs(puck.dx);
+        puck.dy += rightPaddle.dy * 0.3;
+      }
+
+      // Left goal: AI scores
+      if (puck.x - PUCK_RADIUS < 0) {
+        aiScore++;
+        resetPuck(1);
+      }
+      // Right goal: Player scores
+      if (puck.x + PUCK_RADIUS > WIDTH) {
+        playerScore++;
+        resetPuck(-1);
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+      // Draw center line and circle
+      ctx.strokeStyle = "#aaa";
+      ctx.setLineDash([10, 10]);
+      ctx.beginPath();
+      ctx.moveTo(WIDTH/2, 0); ctx.lineTo(WIDTH/2, HEIGHT); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.arc(WIDTH/2, HEIGHT/2, 50, 0, 2*Math.PI); ctx.stroke();
+
+      // Draw paddles
+      ctx.fillStyle = "#4ae";
+      ctx.fillRect(leftPaddle.x, leftPaddle.y, PADDLE_WIDTH, PADDLE_HEIGHT);
+      ctx.fillStyle = "#e44";
+      ctx.fillRect(rightPaddle.x, rightPaddle.y, PADDLE_WIDTH, PADDLE_HEIGHT);
+
+      // Draw puck
+      ctx.fillStyle = "#fff";
+      ctx.beginPath();
+      ctx.arc(puck.x, puck.y, PUCK_RADIUS, 0, 2*Math.PI);
+      ctx.fill();
+      ctx.strokeStyle = "#888";
+      ctx.stroke();
+
+      // Draw scores
+      ctx.fillStyle = "#fff";
+      ctx.font = "32px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText(`Player: ${playerScore}   Computer: ${aiScore}`, WIDTH/2, 40);
+    }
+
+    function gameLoop() {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    }
+
+    resetPuck();
+    gameLoop();
+  </script>
+</body>
+</html>
